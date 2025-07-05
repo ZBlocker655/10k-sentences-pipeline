@@ -1,0 +1,19 @@
+[project]
+name = "language-sentence-toolkit"
+version = "0.0.1"
+description = "Tools for maintaining a lightweight 10,000 sentence language study system"
+requires-python = ">=3.12"
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+
+[tool.isort]
+profile = "black"
+
+[tool.pylint]
+disable = ["C0114", "C0115", "C0116"]  # Ignore missing docstring warnings
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
