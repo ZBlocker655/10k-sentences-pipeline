@@ -50,3 +50,31 @@ From the project root directory, run:
   ```powershell
   python -m venv .venv
   .\.venv\Scripts\Activate.ps1
+
+## 📦 Usage
+
+### 🔹 Extracting Sentences with `anki_sentence_extractor.py`
+
+This script extracts English sentences from a specified Anki deck via the AnkiConnect API, and writes them to a tab-delimited `.txt` file with numeric IDs.
+
+#### Prerequisites
+
+- Anki desktop is running
+- [AnkiConnect](https://github.com/FooSoft/anki-connect) plugin is installed and enabled
+- Your deck contains the English sentences in a specific field
+
+#### Basic Usage
+
+```bash
+python anki_sentence_extractor.py --deck "MyDeckName" --field "English" --output "sentences.txt" --start-id 1
+```
+
+You can also omit the `--output` and `--start-id` arguments (default=1).
+
+```bash
+python anki_sentence_extractor.py --deck "MyDeckName" --field "English"
+```
+
+#### Troubleshooting
+
+If you get a result "✅ Found 0 notes.", try renaming your deck without spaces.

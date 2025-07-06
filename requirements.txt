@@ -3,3 +3,6 @@ black
 isort
 mypy
 pylint
+
+# Sentence extraction
+requests
