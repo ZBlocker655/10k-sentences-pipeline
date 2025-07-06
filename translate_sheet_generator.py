@@ -174,49 +174,45 @@ def set_row_font(spreadsheet_id, sheet_id, row_index, font_family):
         spreadsheetId=spreadsheet_id, body=body).execute()
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Generate a translated Google Sheet using formulas.")
-    parser.add_argument("--source_sheet_id", required=True)
-    parser.add_argument("--source_tab_name", default="Sheet1")
-    parser.add_argument("--dest_sheet_name", required=True)
-    parser.add_argument("--target_lang", required=True, help="e.g. zh-CN")
-    parser.add_argument("--target_font", required=False, help="Optional font for translated column")
-    parser.add_argument("--font_size", required=False, type=int, help="Optional font size to apply to all columns")
-    parser.add_argument("--dest_folder_id", required=False)
-    args = parser.parse_args()
-
-    source_range = f"{args.source_tab_name}!A1:A"
+def fetch_english_sentences(source_sheet_id, source_tab_name):
+    print(f"Fetching English sentences from {source_sheet_id} - {source_tab_name}...")
+    source_range = f"{source_tab_name}!A1:A"
     result = sheets_service.spreadsheets().values().get(
-        spreadsheetId=args.source_sheet_id, range=source_range
+        spreadsheetId=source_sheet_id, range=source_range
     ).execute()
     english_sentences = result.get("values", [])
     num_rows = len(english_sentences)
 
     if num_rows == 0:
         print("No English sentences found in source tab.")
-        return
+        return None, 0
 
-    print(f"Fetched {num_rows} sentences. Creating destination sheet...")
+    print(f"Fetched {num_rows} sentences.")
+    return english_sentences, num_rows
 
+
+def create_destination_sheet(dest_sheet_name, dest_folder_id):
     try:
         file_metadata = {
-            "name": args.dest_sheet_name,
+            "name": dest_sheet_name,
             "mimeType": "application/vnd.google-apps.spreadsheet"
         }
-        if args.dest_folder_id:
-            file_metadata["parents"] = [args.dest_folder_id]
+        if dest_folder_id:
+            file_metadata["parents"] = [dest_folder_id]
 
         new_sheet = drive_service.files().create(body=file_metadata, fields="id").execute()
-        dest_sheet_id = new_sheet["id"]
+        return new_sheet["id"]
     except HttpError as e:
         print(f"Failed to create destination sheet: {e}")
-        return
+        return None
 
+
+def populate_destination_sheet(dest_sheet_id, english_sentences, target_lang, num_rows):
     rows = []
     for i, row in enumerate(english_sentences, start=1):
         sid = i
         english = row[0]
-        formula = f'=GOOGLETRANSLATE(B{i+1}, "en", "{args.target_lang}")'
+        formula = f'=GOOGLETRANSLATE(B{i+1}, "en", "{target_lang}")'
         rows.append([sid, english, formula])
 
     value_range = {
@@ -232,8 +228,7 @@ def main():
         valueInputOption="USER_ENTERED"
     ).execute()
 
-    wait_for_translations(dest_sheet_id, "Sheet1", "C", 2, num_rows)
-
+    # Copy raw translations from column C to D
     translations = [[cell[0]] for cell in wait_for_translations(dest_sheet_id, "Sheet1", "C", 2, num_rows)]
     sheets_service.spreadsheets().values().update(
         spreadsheetId=dest_sheet_id,
@@ -242,6 +237,7 @@ def main():
         valueInputOption="RAW"
     ).execute()
 
+    # Clear column C (raw translations) to avoid continuous use of formulas
     sheets_service.spreadsheets().values().update(
         spreadsheetId=dest_sheet_id,
         range="Sheet1!C2:C",
@@ -249,18 +245,16 @@ def main():
         valueInputOption="RAW"
     ).execute()
 
-    # Get sheet ID for formatting
-    spreadsheet = sheets_service.spreadsheets().get(spreadsheetId=dest_sheet_id).execute()
-    sheet_id = spreadsheet["sheets"][0]["properties"]["sheetId"]
 
+def apply_sheet_formatting(dest_sheet_id, sheet_id, num_rows, font_size, target_font):
     # Apply font size to all columns A-D if given
-    if args.font_size:
+    if font_size:
         for col_index in range(4):
-            set_column_font_and_size(dest_sheet_id, sheet_id, col_index, font_size=args.font_size)
+            set_column_font_and_size(dest_sheet_id, sheet_id, col_index, font_size=font_size)
 
     # Apply font to translated column (D, index 3) if given
-    if args.target_font:
-        set_column_font_and_size(dest_sheet_id, sheet_id, 3, font_family=args.target_font)
+    if target_font:
+        set_column_font_and_size(dest_sheet_id, sheet_id, 3, font_family=target_font)
 
     # Auto resize columns B and D
     try:
@@ -285,6 +279,36 @@ def main():
 
     # Set monospace font on the top row (row index 0)
     set_row_font(dest_sheet_id, sheet_id, 0, "Courier New")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Generate a translated Google Sheet using formulas.")
+    parser.add_argument("--source_sheet_id", required=True)
+    parser.add_argument("--source_tab_name", default="Sheet1")
+    parser.add_argument("--dest_sheet_name", required=True)
+    parser.add_argument("--target_lang", required=True, help="e.g. zh-CN")
+    parser.add_argument("--target_font", required=False, help="Optional font for translated column")
+    parser.add_argument("--font_size", required=False, type=int, help="Optional font size to apply to all columns")
+    parser.add_argument("--dest_folder_id", required=False)
+    args = parser.parse_args()
+
+    english_sentences, num_rows = fetch_english_sentences(args.source_sheet_id, args.source_tab_name)
+    if num_rows == 0:
+        return
+
+    dest_sheet_id = create_destination_sheet(args.dest_sheet_name, args.dest_folder_id)
+    if not dest_sheet_id:
+        return
+
+    populate_destination_sheet(dest_sheet_id, english_sentences, args.target_lang, num_rows)
+
+    print(f"Applying formatting to destination sheet...")
+
+    # Get sheet ID for formatting
+    spreadsheet = sheets_service.spreadsheets().get(spreadsheetId=dest_sheet_id).execute()
+    sheet_id = spreadsheet["sheets"][0]["properties"]["sheetId"]
+
+    apply_sheet_formatting(dest_sheet_id, sheet_id, num_rows, args.font_size, args.target_font)
 
     print(f"✅ Translation sheet created: https://docs.google.com/spreadsheets/d/{dest_sheet_id}")
 
