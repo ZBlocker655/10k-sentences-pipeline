@@ -2,13 +2,13 @@
 
 **DIY language learning tools for building a personalized sentence-based study system.**
 
-This project contains Python scripts that power a custom implementation of the 10,000 Sentences Method for language acquisition. It enables you to extract, translate, and study real-world sentences with audio playback — all using open tools and your own curated content.
+This project contains Python scripts that power a custom implementation of the [10,000 Sentences Method](https://langible.com/articles/10000-sentence-method) for language acquisition. It enables you to extract, translate, and study real-world sentences with audio playback — all using open tools and your own curated content.
 
 ## ✨ Features
 
 - 📥 **Sentence Extraction** from Anki decks using the AnkiConnect API
-- 🌐 **Batch Translation** of English sentences into your target language (e.g. Mandarin) using OpenAI or Google Translate
-- 🔊 **Text-to-Speech Audio Generation** via Google Cloud or ElevenLabs
+- 🌐 **Batch Translation** of English sentences into your target language (e.g. Mandarin) using Google Translate (as embedded Google Sheets formula - no API charges)
+- 🔊 **Text-to-Speech Audio Generation** via (TBD)
 - 📄 **Google Sheets Integration** for lightweight study sessions
 - 📁 **Google Drive Automation** for organizing sentence files and audio links
 - 🧩 Support for both a large “primary” sentence deck and smaller topic-focused “language islands”
@@ -48,7 +48,7 @@ From the project root directory, run:
   python -m venv .venv
   .\.venv\Scripts\Activate.ps1
 
-## 🔐 Setting Up Google Cloud Service Account (for Beginners)
+### 🔐 Setting Up Google Cloud Service Account (for Beginners)
 
 To authenticate your script with Google Sheets API, you'll need a **service account JSON key file**. Here's how to get one securely and store it properly:
 
@@ -124,7 +124,7 @@ You can also omit the `--output` argument (default is `sentences.txt`).
 
 If you get a result "✅ Found 0 notes.", try renaming your deck without spaces.
 
-### Translate English sentences into your target language with `translate_sheet_generator.py`
+### 🔹 Translating English sentences into your target language with `translate_sheet_generator.py`
 
 This tool creates a new Google Sheet that:
 
@@ -163,7 +163,7 @@ GOOGLE_SERVICE_ACCOUNT_FILE=.secrets/gcloud-key.json
 
 ---
 
-### 📦 Sample Usage
+#### 📦 Sample Usage
 
 ```bash
 python translate_sheet_generator.py \
