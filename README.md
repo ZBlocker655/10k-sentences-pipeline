@@ -55,7 +55,7 @@ From the project root directory, run:
 
 ### 🔹 Extracting Sentences with `anki_sentence_extractor.py`
 
-This script extracts English sentences from a specified Anki deck via the AnkiConnect API, and writes them to a tab-delimited `.txt` file with numeric IDs.
+This script extracts English sentences from a specified Anki deck via the AnkiConnect API, and writes them to a `.txt` file with one sentence per line.
 
 #### Prerequisites
 
@@ -66,14 +66,10 @@ This script extracts English sentences from a specified Anki deck via the AnkiCo
 #### Basic Usage
 
 ```bash
-python anki_sentence_extractor.py --deck "MyDeckName" --field "English" --output "sentences.txt" --start-id 1
+python anki_sentence_extractor.py --deck "MyDeckName" --field "English" --output "sentences.txt"
 ```
 
-You can also omit the `--output` and `--start-id` arguments (default=1).
-
-```bash
-python anki_sentence_extractor.py --deck "MyDeckName" --field "English"
-```
+You can also omit the `--output` argument (default is `sentences.txt`).
 
 #### Troubleshooting
 

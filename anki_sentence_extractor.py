@@ -2,8 +2,8 @@
 anki_sentence_extractor.py
 
 Extracts English sentences from a specified Anki deck using AnkiConnect.
-Allows configuration of the deck name, the field containing English text, and the starting ID for exported sentences.
-Outputs a tab-delimited text file with numbered sentence IDs and their corresponding sentences.
+Allows configuration of the deck name and the field containing English text.
+Outputs file containing extracted sentences, one per line.
 """
 
 import argparse
@@ -49,12 +49,11 @@ def extract_sentences(deck_name, field_name):
     return sentences
 
 
-def write_sentences(sentences, output_path, start_id):
-    print(f"💾 Writing to {output_path} starting from ID {start_id:05d}...")
+def write_sentences(sentences, output_path):
+    print(f"💾 Writing to {output_path}...")
     with open(output_path, "w", encoding="utf-8") as f:
-        for i, sentence in enumerate(sentences):
-            sentence_id = start_id + i
-            f.write(f"{sentence_id:05d}\t{sentence}\n")
+        for sentence in sentences:
+            f.write(f"{sentence}\n")
     print("✅ Done.")
 
 
@@ -68,13 +67,12 @@ def main():
     parser.add_argument("--deck", required=True, help="Name of the Anki deck")
     parser.add_argument("--field", required=True, help="Name of the field containing the English sentence")
     parser.add_argument("--output", default="sentences.txt", help="Output .txt file path")
-    parser.add_argument("--start-id", type=int, default=1, help="Starting sentence ID (default: 1)")
 
     args = parser.parse_args()
 
     #debug_list_decks()
     sentences = extract_sentences(args.deck, args.field)
-    write_sentences(sentences, Path(args.output), args.start_id)
+    write_sentences(sentences, Path(args.output))
 
 
 if __name__ == "__main__":
