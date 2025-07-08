@@ -20,6 +20,10 @@ from google.oauth2 import service_account
 load_dotenv()
 
 SERVICE_ACCOUNT_FILE = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE")
+if not SERVICE_ACCOUNT_FILE or not os.path.exists(SERVICE_ACCOUNT_FILE):
+    print("Error: GOOGLE_SERVICE_ACCOUNT_FILE is not set or the file does not exist.")
+    sys.exit(1)
+
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"

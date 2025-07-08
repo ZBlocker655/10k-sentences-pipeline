@@ -8,7 +8,7 @@ This project contains Python scripts that power a custom implementation of the [
 
 - 📥 **Sentence Extraction** from Anki decks using the AnkiConnect API
 - 🌐 **Batch Translation** of English sentences into your target language (e.g. Mandarin) using Google Translate (as embedded Google Sheets formula - no API charges)
-- 🔊 **Text-to-Speech Audio Generation** via (TBD)
+- 🔊 **Text-to-Speech Audio Generation** via Google TTS
 - 📄 **Google Sheets Integration** for lightweight study sessions
 - 📁 **Google Drive Automation** for organizing sentence files and audio links
 - 🧩 Support for both a large “primary” sentence deck and smaller topic-focused “language islands”
@@ -60,13 +60,13 @@ To authenticate your script with Google Sheets API, you'll need a **service acco
 2. Click the project dropdown (top-left), then click **"New Project"**.
 3. Give it a name like `LanguageToolsProject`, then click **"Create"**.
 
-### 2. Enable the Google Sheets API
+### 2. Enable the necessary Google APIs
 
 1. With your project selected, go to the left menu:
    - **APIs & Services > Library**
 2. Search for **Google Sheets API**.
 3. Click it and then click **"Enable"**.
-4. Do the same for **Google Drive API**.
+4. Do the same for **Google Drive API** and **Google Text-to-Speech API**.
 
 ### 3. Create a Service Account
 
@@ -192,3 +192,59 @@ Need help getting your folder ID? Just open the target folder in Google Drive an
 ```
 https://drive.google.com/drive/folders/<FOLDER_ID>
 ```
+
+### 🔹 Generating Audio with `audio_generator.py`
+
+This script generates audio files for translated sentences using the Google Cloud Text-to-Speech API. It uploads the audio files to Google Drive and updates the source Google Sheet with hyperlinks to the audio files.
+
+#### Prerequisites
+
+- A Google Cloud service account JSON file with access to the Text-to-Speech and Drive APIs.
+- The `GOOGLE_SERVICE_ACCOUNT_FILE` environment variable set to the path of the service account JSON file.
+- A Google Sheet with the following columns:
+  - `translation` (column with translated sentences)
+  - `audio_file` (column for audio hyperlinks)
+  - `sentence_id` (column for unique sentence IDs)
+
+#### Basic Usage
+
+```bash
+python audio_generator.py --sheet_id "<SHEET_ID>" \
+                          --source_tab_name "<TAB_NAME>" \
+                          --dest_folder_id "<DRIVE_FOLDER_ID>" \
+                          --voice_name "<VOICE_NAME>" \
+                          [--text_column "C"] \
+                          [--audio_link_column "D"] \
+                          [--id_column "A"] \
+                          [--start_row 2] \
+                          [--speaking_rate 1.0] \
+                          [--audio_encoding "MP3"] \
+                          [--max_rows <NUMBER>]
+```
+
+#### Parameters
+
+- `--sheet_id`: The ID of the Google Sheet to process.
+- `--source_tab_name`: The name of the tab in the sheet containing the sentences.
+- `--dest_folder_id`: The ID of the Google Drive folder where audio files will be uploaded.
+- `--voice_name`: The Google TTS voice name (e.g., `en-US-Wavenet-D`).
+- `--text_column`: The column letter containing the sentences (default: `C`).
+- `--audio_link_column`: The column letter for audio hyperlinks (default: `D`).
+- `--id_column`: The column letter for sentence IDs (default: `A`).
+- `--start_row`: The row number to start processing (default: `2`).
+- `--speaking_rate`: The speaking rate multiplier (default: `1.0`).
+- `--audio_encoding`: The audio encoding format (`MP3`, `OGG_OPUS`, or `LINEAR16`; default: `MP3`).
+- `--max_rows`: The maximum number of rows to process (default: no limit).
+
+#### Example
+
+```bash
+python audio_generator.py --sheet_id "1aBcD2EfGhIjKlMnOpQrStUvWxYz" \
+                          --source_tab_name "Sentences" \
+                          --dest_folder_id "1XyZ12345AbCdEfGhIjKlMnOpQrStUv" \
+                          --voice_name "en-US-Wavenet-D" \
+                          --id_column "A" \
+                          --max_rows 10
+```
+
+This example processes up to 10 rows from the `Sentences` tab of the specified Google Sheet, generates audio files using the `en-US-Wavenet-D` voice, uploads them to the specified Google Drive folder, and updates the sheet with hyperlinks to the audio files.
