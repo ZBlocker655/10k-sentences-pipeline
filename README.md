@@ -1,250 +1,107 @@
-# 🈸 Language Sentence Toolkit for 10,000 Sentences study method
+# Language Sentence Toolkit for 10,000 Sentences Method
 
-**DIY language learning tools for building a personalized sentence-based study system.**
+This repository contains Python scripts designed to help language learners build a personalized sentence-based study system. The tools enable you to extract, translate, and study real-world sentences with audio playback using open tools and curated content.
 
-This project contains Python scripts that power a custom implementation of the [10,000 Sentences Method](https://langible.com/articles/10000-sentence-method) for language acquisition. It enables you to extract, translate, and study real-world sentences with audio playback — all using open tools and your own curated content.
+## Features
 
-## ✨ Features
+- Extract sentences from Anki decks using the AnkiConnect API.
+- Batch translate sentences into your target language using Google Sheets.
+- Generate audio files for sentences using Google Cloud Text-to-Speech.
+- Integrate with Google Sheets for lightweight study sessions.
+- Automate file organization and audio links with Google Drive.
 
-- 📥 **Sentence Extraction** from Anki decks using the AnkiConnect API
-- 🌐 **Batch Translation** of English sentences into your target language (e.g. Mandarin) using Google Translate (as embedded Google Sheets formula - no API charges)
-- 🔊 **Text-to-Speech Audio Generation** via Google TTS
-- 📄 **Google Sheets Integration** for lightweight study sessions
-- 📁 **Google Drive Automation** for organizing sentence files and audio links
-- 🧩 Support for both a large “primary” sentence deck and smaller topic-focused “language islands”
+## Technologies
 
-## 🔍 What this is for
+- Python 3.11+
+- Google Cloud APIs (Sheets, Drive, Text-to-Speech)
+- AnkiConnect (Local Web API)
 
-A language learner who needs:
+## Setup Instructions
 
-- A personalized sentence bank built from Anki decks or hand-written material
-- High-quality target-language translations and audio
-- A daily study system that works seamlessly on desktop or mobile
-- A simple pipeline to get my sentences where I need them, and get them translated and produce audio files with a minimum of work.
+### Python Environment
 
-## 🛠 Technologies
+- Install Python 3.11 or later.
+- Set up a virtual environment:
 
-- **Python 3.11+**
-- **Google Cloud APIs** (Sheets, Drive, TTS)
-- **AnkiConnect (Local Web API)** - This is the desktop version of Anki running the AnkiConnect plugin
+    ```bash
+    python -m venv .venv
+    source .venv/bin/activate  # On Windows: .\.venv\Scripts\Activate.ps1
+    ```
 
-## 🛠 Developer Setup Instructions
+- Install dependencies
 
-This section guides you through setting up your local Python development environment for this project.
+    ```bash
+     pip install -r requirements.txt
+     ```
 
-### 1. Prerequisites
+### Google Cloud Service Account
 
-- Python 3.12.6 or later installed and added to your system PATH
-- Git (optional, for cloning this repo)
-- VS Code (recommended) or any code editor of your choice
+- Create a Google Cloud project and enable the necessary APIs:
+  - Google Sheets API
+  - Google Drive API
+  - Google Text-to-Speech API
+- Create a service account and download the JSON key file.
+- Share your Google Drive folder with the service account email.
+- Store the JSON key file securely in your project directory (e.g., `.secrets/gcloud-key.json`).
+- Add the following to a `.env` file:
 
-### 2. Create and Activate Virtual Environment
+ ```env
+ GOOGLE_SERVICE_ACCOUNT_FILE=.secrets/gcloud-key.json
+ ```
 
-From the project root directory, run:
+## Usage
 
-- On Windows (PowerShell):
+### Extracting Sentences with `anki_sentence_extractor.py`
 
-  ```powershell
-  python -m venv .venv
-  .\.venv\Scripts\Activate.ps1
+This script extracts English sentences from a specified Anki deck via the AnkiConnect API and writes them to a `.txt` file.
 
-### 🔐 Setting Up Google Cloud Service Account (for Beginners)
-
-To authenticate your script with Google Sheets API, you'll need a **service account JSON key file**. Here's how to get one securely and store it properly:
-
----
-
-### 1. Create a Google Cloud Project
-
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
-2. Click the project dropdown (top-left), then click **"New Project"**.
-3. Give it a name like `LanguageToolsProject`, then click **"Create"**.
-
-### 2. Enable the necessary Google APIs
-
-1. With your project selected, go to the left menu:
-   - **APIs & Services > Library**
-2. Search for **Google Sheets API**.
-3. Click it and then click **"Enable"**.
-4. Do the same for **Google Drive API** and **Google Text-to-Speech API**.
-
-### 3. Create a Service Account
-
-1. Go to **APIs & Services > Credentials**.
-2. Click **"Create Credentials"** > **"Service account"**.
-3. Name it something like `automation-scripts`, then click **"Done"** (you can skip assigning roles).
-
-### 4. Download the JSON Key File
-
-1. In the list of service accounts, find yours and click the **three dots > Manage keys**.
-2. Click **"Add key" > "Create new key"**.
-3. Select **JSON** and click **"Create"**.
-4. Your browser will download a `.json` file — this is your **private key**.
-
-### 5. Grant Access to Your Google Drive Folders
-
-To allow your service account to read from and write to your spreadsheets without needing to manually share each one, you can grant folder-level access. This is the recommended setup to streamline your workflow.
-
-- Open Google Drive
-- Identify your root project folder
-- Choose the top-level folder in Google Drive that contains (or will contain) your sentence lists, translated sheets, audio files, or other pipeline artifacts.
-- Right-click the folder → select Share
-- In the “Add people and groups” field:
-  - Paste your service account email address (looks like: your-bot@your-project.iam.gserviceaccount.com)
-  - Set the access level to Editor
-  - Click Send
-
----
-
-### 📁 Where to Store the JSON Key
-
-Place it in a local `.secrets/` folder in your project directory:
-
-## 📦 Usage
-
-### 🔹 Extracting Sentences with `anki_sentence_extractor.py`
-
-This script extracts English sentences from a specified Anki deck via the AnkiConnect API, and writes them to a `.txt` file with one sentence per line.
-
-#### Prerequisites
-
-- Anki desktop is running
-- [AnkiConnect](https://github.com/FooSoft/anki-connect) plugin is installed and enabled
-- Your deck contains the English sentences in a specific field
-
-#### Basic Usage
+#### Example Usage of `anki_sentence_extractor.py`
 
 ```bash
 python anki_sentence_extractor.py --deck "MyDeckName" --field "English" --output "sentences.txt"
 ```
 
-You can also omit the `--output` argument (default is `sentences.txt`).
+### Translating Sentences with `translate_sheet_generator.py`
 
-#### Troubleshooting
+This script creates a new Google Sheet that translates English sentences into your target language using the `=GOOGLETRANSLATE()` formula.
 
-If you get a result "✅ Found 0 notes.", try renaming your deck without spaces.
-
-### 🔹 Translating English sentences into your target language with `translate_sheet_generator.py`
-
-This tool creates a new Google Sheet that:
-
-- Copies English sentences from a source Google Sheet
-- Adds an auto-generated ID for each sentence
-- Applies the `=GOOGLETRANSLATE()` formula to produce translations in the target language
-- Waits for translations to complete
-- Copies the translations to a permanent column and removes the formulas
-- (Optionally) places the resulting spreadsheet in a specific Google Drive folder
-
-#### ✅ Setup Instructions
-
-1. **Enable Google APIs** in your Google Cloud project:
-   - [Google Sheets API](https://console.cloud.google.com/apis/library/sheets.googleapis.com)
-   - [Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com)
-
-2. **Create a Service Account**:
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Create a new project (or reuse one)
-   - Go to **APIs & Services > Credentials**
-   - Click **Create Credentials > Service Account**
-   - Download the JSON key and save it to your project in a `.secrets/` folder (e.g. `.secrets/gcloud-key.json`)
-
-3. **Share the source sheet** with your service account:
-   - Find your service account email (e.g. `my-bot@my-project.iam.gserviceaccount.com`)
-   - Open the source Google Sheet in your browser
-   - Click **Share** and add the email with **Editor** permissions
-
-4. **Create a `.env` file** in your project root:
-
-```env
-GOOGLE_SERVICE_ACCOUNT_FILE=.secrets/gcloud-key.json
-```
-
-> ✅ You can copy from `.env.example`
-
----
-
-#### 📦 Sample Usage
+#### Example Usage of `translate_sheet_generator.py`
 
 ```bash
 python translate_sheet_generator.py \
-  --source_sheet_id 1A2B3C4D... \
+  --source_sheet_id <SOURCE_SHEET_ID> \
   --source_tab_name Sheet1 \
-  --dest_sheet_name _Primary_Mandarin \
+  --dest_sheet_name Translations \
   --target_lang zh-CN \
-  --dest_folder_id 1XyZabc1234567890
+  --dest_folder_id <DRIVE_FOLDER_ID>
 ```
 
-#### Required Parameters
+### Generating Audio with `audio_generator.py`
 
-- `--source_sheet_id` — ID of the English-only source Google Sheet
-- `--dest_sheet_name` — Name for the new translated spreadsheet
-- `--target_lang` — Language code for translation (e.g. `zh-CN`, `fr`, `es`)
+This script generates audio files for translated sentences using Google Cloud Text-to-Speech, uploads them to Google Drive, and updates the source Google Sheet with hyperlinks.
 
-#### Optional Parameters
-
-- `--source_tab_name` — Tab name inside the source sheet (defaults to `Sheet1`)
-- `--target_font` — Font to apply to the translated column (optional, coming soon)
-- `--dest_folder_id` — Folder ID in Google Drive to place the new sheet
-
----
-
-Need help getting your folder ID? Just open the target folder in Google Drive and copy the ID from the URL:
-```
-https://drive.google.com/drive/folders/<FOLDER_ID>
-```
-
-### 🔹 Generating Audio with `audio_generator.py`
-
-This script generates audio files for translated sentences using the Google Cloud Text-to-Speech API. It uploads the audio files to Google Drive and updates the source Google Sheet with hyperlinks to the audio files.
-
-#### Prerequisites
-
-- A Google Cloud service account JSON file with access to the Text-to-Speech and Drive APIs.
-- The `GOOGLE_SERVICE_ACCOUNT_FILE` environment variable set to the path of the service account JSON file.
-- A Google Sheet with the following columns:
-  - `translation` (column with translated sentences)
-  - `audio_file` (column for audio hyperlinks)
-  - `sentence_id` (column for unique sentence IDs)
-
-#### Basic Usage
+#### Example Usage of `audio_generator.py`
 
 ```bash
-python audio_generator.py --sheet_id "<SHEET_ID>" \
-                          --source_tab_name "<TAB_NAME>" \
-                          --dest_folder_id "<DRIVE_FOLDER_ID>" \
-                          --voice_name "<VOICE_NAME>" \
-                          [--text_column "C"] \
-                          [--audio_link_column "D"] \
-                          [--id_column "A"] \
-                          [--start_row 2] \
-                          [--speaking_rate 1.0] \
-                          [--audio_encoding "MP3"] \
-                          [--max_rows <NUMBER>]
+python audio_generator.py \
+  --sheet_id <SHEET_ID> \
+  --source_tab_name Sentences \
+  --dest_folder_id <DRIVE_FOLDER_ID> \
+  --voice_name en-US-Wavenet-D \
+  --text_column C \
+  --audio_link_column D \
+  --id_column A \
+  --start_row 2 \
+  --speaking_rate 1.0 \
+  --audio_encoding MP3
 ```
 
-#### Parameters
+## Notes
 
-- `--sheet_id`: The ID of the Google Sheet to process.
-- `--source_tab_name`: The name of the tab in the sheet containing the sentences.
-- `--dest_folder_id`: The ID of the Google Drive folder where audio files will be uploaded.
-- `--voice_name`: The Google TTS voice name (e.g., `en-US-Wavenet-D`).
-- `--text_column`: The column letter containing the sentences (default: `C`).
-- `--audio_link_column`: The column letter for audio hyperlinks (default: `D`).
-- `--id_column`: The column letter for sentence IDs (default: `A`).
-- `--start_row`: The row number to start processing (default: `2`).
-- `--speaking_rate`: The speaking rate multiplier (default: `1.0`).
-- `--audio_encoding`: The audio encoding format (`MP3`, `OGG_OPUS`, or `LINEAR16`; default: `MP3`).
-- `--max_rows`: The maximum number of rows to process (default: no limit).
+- Ensure your Google Cloud service account has access to the necessary APIs and shared Google Drive folders.
+- The scripts are designed to work with specific column structures in Google Sheets. Refer to the script documentation for details.
+- Use the `Verify Code` task in VS Code to check code formatting and linting.
 
-#### Example
+## License
 
-```bash
-python audio_generator.py --sheet_id "1aBcD2EfGhIjKlMnOpQrStUvWxYz" \
-                          --source_tab_name "Sentences" \
-                          --dest_folder_id "1XyZ12345AbCdEfGhIjKlMnOpQrStUv" \
-                          --voice_name "en-US-Wavenet-D" \
-                          --id_column "A" \
-                          --max_rows 10
-```
-
-This example processes up to 10 rows from the `Sentences` tab of the specified Google Sheet, generates audio files using the `en-US-Wavenet-D` voice, uploads them to the specified Google Drive folder, and updates the sheet with hyperlinks to the audio files.
+This project is licensed under the MIT License. See the `LICENSE` file for details.
