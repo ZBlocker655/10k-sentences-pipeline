@@ -81,16 +81,25 @@ def read_sheet_column(sheets_service, spreadsheet_id: str, tab_name: str, column
 
     return column_values
 
-def update_sheet_cells(sheets_service, spreadsheet_id: str, tab_name: str, start_row: int,
-                       column_letter: str, values: List[str]):
-    """Write values to a single column starting at start_row."""
+def update_sheet_cells_with_retry(sheets_service, spreadsheet_id: str, tab_name: str, start_row: int,
+                                   column_letter: str, values: List[str], max_retries=5):
+    """Write values to a single column starting at start_row with retry logic."""
     range_name = f"{tab_name}!{column_letter}{start_row}:{column_letter}"
     body = {
         'values': [[v] for v in values]
     }
-    sheets_service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id, range=range_name,
-        valueInputOption='USER_ENTERED', body=body).execute()
+
+    def update():
+        return sheets_service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id, range=range_name,
+            valueInputOption='USER_ENTERED', body=body).execute()
+
+    try:
+        return exponential_backoff_retry(update, max_retries=max_retries)
+    except HttpError as e:
+        logger.error(f"Google Sheets API error while updating cells in range '{range_name}': {e.content}", exc_info=True)
+    except Exception as e:
+        logger.error(f"Unexpected error while updating cells in range '{range_name}': {e}", exc_info=True)
 
 def ensure_column_header(sheets_service, spreadsheet_id: str, tab_name: str,
                          column_letter: str, header_name: str):
@@ -248,7 +257,7 @@ def process_row(row_num, text, tts_client, drive_service, sheets_service, audio_
 
     # Update sheet with hyperlink formula
     hyperlink_formula = f'=HYPERLINK("{link}", "{filename}")'
-    update_sheet_cells(sheets_service, args.sheet_id, args.source_tab_name, row_num, args.audio_link_column, [hyperlink_formula])
+    update_sheet_cells_with_retry(sheets_service, args.sheet_id, args.source_tab_name, row_num, args.audio_link_column, [hyperlink_formula])
 
 def validate_input_parameters(args):
     """Validate input parameters to ensure they are valid and accessible."""
