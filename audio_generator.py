@@ -20,8 +20,10 @@ import base64
 import logging
 from typing import List, Optional, Tuple
 import random
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+import pickle
 
-from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.cloud import texttospeech
@@ -46,9 +48,21 @@ logger = logging.getLogger(__name__)
 
 def get_google_services():
     """Initialize and return Google services."""
-    creds = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE, scopes=SCOPES
-    )
+    creds = None
+    if os.path.exists('token.pickle'):
+        with open('token.pickle', 'rb') as token:
+            creds = pickle.load(token)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                os.getenv("GOOGLE_OAUTH_CLIENT_FILE"), SCOPES
+            )
+            creds = flow.run_local_server(port=0)
+        with open('token.pickle', 'wb') as token:
+            pickle.dump(creds, token)
+
     sheets_service = build("sheets", "v4", credentials=creds)
     drive_service = build("drive", "v3", credentials=creds)
     tts_client = texttospeech.TextToSpeechClient(credentials=creds)

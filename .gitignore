@@ -210,3 +210,7 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Ignore OAuth token file
+# This file contains sensitive credentials and should not be shared.
+token.pickle

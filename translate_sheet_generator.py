@@ -15,6 +15,9 @@ from dotenv import load_dotenv
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.oauth2 import service_account
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+import pickle
 
 # Load environment variables
 load_dotenv()
@@ -29,10 +32,23 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-# Initialize Google APIs
-creds = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE, scopes=SCOPES
-)
+# Replace service account authentication with OAuth 2.0 authentication
+creds = None
+if os.path.exists('token.pickle'):
+    with open('token.pickle', 'rb') as token:
+        creds = pickle.load(token)
+if not creds or not creds.valid:
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+    else:
+        flow = InstalledAppFlow.from_client_secrets_file(
+            os.getenv("GOOGLE_OAUTH_CLIENT_FILE"), SCOPES
+        )
+        creds = flow.run_local_server(port=0)
+    with open('token.pickle', 'wb') as token:
+        pickle.dump(creds, token)
+
+# Initialize Google APIs with OAuth credentials
 sheets_service = build("sheets", "v4", credentials=creds)
 drive_service = build("drive", "v3", credentials=creds)
 
