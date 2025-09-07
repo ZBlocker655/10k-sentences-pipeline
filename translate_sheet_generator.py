@@ -18,6 +18,7 @@ from google.oauth2 import service_account
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 import pickle
+import json
 
 # Load environment variables
 load_dotenv()
@@ -27,30 +28,48 @@ if not SERVICE_ACCOUNT_FILE or not os.path.exists(SERVICE_ACCOUNT_FILE):
     print("Error: GOOGLE_SERVICE_ACCOUNT_FILE is not set or the file does not exist.")
     sys.exit(1)
 
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-]
+def is_valid_token_file(file_path):
+    """Check if the token.pickle file is a valid JSON file."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as token_file:
+            json.load(token_file)
+        return True
+    except (json.JSONDecodeError, UnicodeDecodeError, FileNotFoundError):
+        return False
 
 # Replace service account authentication with OAuth 2.0 authentication
-creds = None
-if os.path.exists('token.pickle'):
-    with open('token.pickle', 'rb') as token:
-        creds = pickle.load(token)
-if not creds or not creds.valid:
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-    else:
-        flow = InstalledAppFlow.from_client_secrets_file(
-            os.getenv("GOOGLE_OAUTH_CLIENT_FILE"), SCOPES
-        )
-        creds = flow.run_local_server(port=0)
-    with open('token.pickle', 'wb') as token:
-        pickle.dump(creds, token)
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/cloud-platform"
+]
 
-# Initialize Google APIs with OAuth credentials
-sheets_service = build("sheets", "v4", credentials=creds)
-drive_service = build("drive", "v3", credentials=creds)
+def get_google_services():
+    """Initialize and return Google services."""
+    creds = None
+    token_path = 'token.pickle'
+
+    if os.path.exists(token_path) and is_valid_token_file(token_path):
+        with open(token_path, 'r', encoding='utf-8') as token:
+            creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                os.getenv("GOOGLE_OAUTH_CLIENT_FILE"), SCOPES
+            )
+            creds = flow.run_local_server(port=0)
+        with open(token_path, 'w', encoding='utf-8') as token:
+            token.write(creds.to_json())
+
+    sheets_service = build("sheets", "v4", credentials=creds)
+    drive_service = build("drive", "v3", credentials=creds)
+    return sheets_service, drive_service
+
+# Replace the initialization of Google APIs with the new function
+sheets_service, drive_service = get_google_services()
 
 def wait_for_translations(spreadsheet_id, sheet_name, formula_col_letter, start_row, num_rows):
     print("Waiting for Google Translate formulas to resolve...")

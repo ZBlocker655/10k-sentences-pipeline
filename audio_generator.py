@@ -20,8 +20,10 @@ import base64
 import logging
 from typing import List, Optional, Tuple
 import random
+import json
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
 import pickle
 
 from googleapiclient.discovery import build
@@ -46,12 +48,24 @@ SCOPES = [
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+def is_valid_token_file(file_path):
+    """Check if the token.pickle file is a valid JSON file."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as token_file:
+            json.load(token_file)
+        return True
+    except (json.JSONDecodeError, UnicodeDecodeError, FileNotFoundError):
+        return False
+
 def get_google_services():
     """Initialize and return Google services."""
     creds = None
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
+    token_path = 'token.pickle'
+
+    if os.path.exists(token_path) and is_valid_token_file(token_path):
+        with open(token_path, 'r', encoding='utf-8') as token:
+            creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
@@ -60,8 +74,8 @@ def get_google_services():
                 os.getenv("GOOGLE_OAUTH_CLIENT_FILE"), SCOPES
             )
             creds = flow.run_local_server(port=0)
-        with open('token.pickle', 'wb') as token:
-            pickle.dump(creds, token)
+        with open(token_path, 'w', encoding='utf-8') as token:
+            token.write(creds.to_json())
 
     sheets_service = build("sheets", "v4", credentials=creds)
     drive_service = build("drive", "v3", credentials=creds)
@@ -358,7 +372,7 @@ def test_google_services(sheets_service, drive_service, tts_client, sheet_id):
 def main():
     parser = argparse.ArgumentParser(description="Generate audio files from translated sentences and update Google Sheet.")
     parser.add_argument('--sheet_id', required=True, help='Google Sheet ID')
-    parser.add_argument('--source_tab_name', required=True, help='Sheet tab name inside the spreadsheet')
+    parser.add_argument('--source_tab_name', default='Sheet1', required=False, help='Sheet tab name inside the spreadsheet')
     parser.add_argument('--text_column', default='C', help='Column letter with translated text (default: C)')
     parser.add_argument('--start_row', type=int, default=2, help='Row number to start reading text from (default: 2)')
     parser.add_argument('--audio_link_column', default='D', help='Column letter for audio hyperlinks (default: D)')
