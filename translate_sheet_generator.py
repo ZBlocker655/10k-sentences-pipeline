@@ -9,27 +9,29 @@ Intended for use in the DIY 10,000 Sentences project.
 """
 
 import os
+import sys
 import time
 import argparse
+import json
 from dotenv import load_dotenv
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from google.oauth2 import service_account
 from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-import pickle
-import json
 
 # Load environment variables
 load_dotenv()
 
-SERVICE_ACCOUNT_FILE = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE")
-if not SERVICE_ACCOUNT_FILE or not os.path.exists(SERVICE_ACCOUNT_FILE):
-    print("Error: GOOGLE_SERVICE_ACCOUNT_FILE is not set or the file does not exist.")
-    sys.exit(1)
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
+
 
 def is_valid_token_file(file_path):
-    """Check if the token.pickle file is a valid JSON file."""
+    """Check if the token file contains valid OAuth JSON credentials."""
     try:
         with open(file_path, 'r', encoding='utf-8') as token_file:
             json.load(token_file)
@@ -37,39 +39,69 @@ def is_valid_token_file(file_path):
     except (json.JSONDecodeError, UnicodeDecodeError, FileNotFoundError):
         return False
 
-# Replace service account authentication with OAuth 2.0 authentication
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive",
-    "https://www.googleapis.com/auth/cloud-platform"
-]
 
-def get_google_services():
-    """Initialize and return Google services."""
+def get_google_credentials():
+    """Create credentials from a service account when available, otherwise OAuth."""
+    service_account_file = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE")
+    if service_account_file:
+        if not os.path.exists(service_account_file):
+            raise RuntimeError(
+                f"GOOGLE_SERVICE_ACCOUNT_FILE points to a missing file: {service_account_file}"
+            )
+        return service_account.Credentials.from_service_account_file(
+            service_account_file,
+            scopes=SCOPES,
+        )
+
+    oauth_client_file = os.getenv("GOOGLE_OAUTH_CLIENT_FILE")
+    if not oauth_client_file:
+        raise RuntimeError(
+            "Set GOOGLE_SERVICE_ACCOUNT_FILE for service-account auth or "
+            "GOOGLE_OAUTH_CLIENT_FILE for OAuth."
+        )
+    if not os.path.exists(oauth_client_file):
+        raise RuntimeError(
+            f"GOOGLE_OAUTH_CLIENT_FILE points to a missing file: {oauth_client_file}"
+        )
+
     creds = None
-    token_path = 'token.pickle'
+    token_path = "token.json"
+    legacy_token_path = "token.pickle"
 
     if os.path.exists(token_path) and is_valid_token_file(token_path):
-        with open(token_path, 'r', encoding='utf-8') as token:
-            creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+    elif os.path.exists(legacy_token_path) and is_valid_token_file(legacy_token_path):
+        creds = Credentials.from_authorized_user_file(legacy_token_path, SCOPES)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                os.getenv("GOOGLE_OAUTH_CLIENT_FILE"), SCOPES
-            )
+            os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
+            flow = InstalledAppFlow.from_client_secrets_file(oauth_client_file, SCOPES)
             creds = flow.run_local_server(port=0)
         with open(token_path, 'w', encoding='utf-8') as token:
             token.write(creds.to_json())
 
+    missing_scopes = set(SCOPES) - set(creds.scopes or [])
+    if missing_scopes:
+        raise RuntimeError(
+            "OAuth credentials were granted without the required scopes: "
+            f"{', '.join(sorted(missing_scopes))}. Delete token.json and re-authorize, "
+            "or configure GOOGLE_SERVICE_ACCOUNT_FILE instead."
+        )
+
+    return creds
+
+def get_google_services():
+    """Initialize and return Google services."""
+    creds = get_google_credentials()
     sheets_service = build("sheets", "v4", credentials=creds)
     drive_service = build("drive", "v3", credentials=creds)
     return sheets_service, drive_service
 
-# Replace the initialization of Google APIs with the new function
-sheets_service, drive_service = get_google_services()
+sheets_service = None
+drive_service = None
 
 def wait_for_translations(spreadsheet_id, sheet_name, formula_col_letter, start_row, num_rows):
     print("Waiting for Google Translate formulas to resolve...")
@@ -81,11 +113,21 @@ def wait_for_translations(spreadsheet_id, sheet_name, formula_col_letter, start_
         ).execute()
         values = result.get("values", [])
 
-        if len(values) == num_rows and all(row and not row[0].startswith("=") for row in values):
+        pending_rows = 0
+        for row in values:
+            if not row:
+                pending_rows += 1
+                continue
+
+            cell_value = str(row[0]).strip()
+            if not cell_value or cell_value == "Loading..." or cell_value.startswith("="):
+                pending_rows += 1
+
+        if len(values) == num_rows and pending_rows == 0:
             print("All translations completed.")
             return values
 
-        print("...still waiting, sleeping 15 seconds")
+        print(f"...still waiting on {max(num_rows - len(values), pending_rows)} rows, sleeping 15 seconds")
         time.sleep(15)
 
 
@@ -239,10 +281,21 @@ def create_destination_sheet(dest_sheet_name, dest_folder_id):
         if dest_folder_id:
             file_metadata["parents"] = [dest_folder_id]
 
-        new_sheet = drive_service.files().create(body=file_metadata, fields="id").execute()
+        new_sheet = drive_service.files().create(
+            body=file_metadata,
+            fields="id",
+            supportsAllDrives=True,
+        ).execute()
         return new_sheet["id"]
     except HttpError as e:
-        print(f"Failed to create destination sheet: {e}")
+        error_message = f"Failed to create destination sheet: {e}"
+        if e.resp is not None and e.resp.status == 403 and b"insufficient" in e.content.lower():
+            error_message += (
+                " OAuth credentials did not include usable Drive access. "
+                "Re-authorize with a Drive-capable OAuth client or configure "
+                "GOOGLE_SERVICE_ACCOUNT_FILE as documented in the README."
+            )
+        print(error_message)
         return None
 
 
@@ -321,6 +374,8 @@ def apply_sheet_formatting(dest_sheet_id, sheet_id, num_rows, font_size, target_
 
 
 def main():
+    global sheets_service, drive_service
+
     parser = argparse.ArgumentParser(description="Generate a translated Google Sheet using formulas.")
     parser.add_argument("--source_sheet_id", required=True)
     parser.add_argument("--source_tab_name", default="Sheet1")
@@ -330,6 +385,12 @@ def main():
     parser.add_argument("--font_size", required=False, type=int, help="Optional font size to apply to all columns")
     parser.add_argument("--dest_folder_id", required=False)
     args = parser.parse_args()
+
+    try:
+        sheets_service, drive_service = get_google_services()
+    except RuntimeError as exc:
+        print(f"Error: {exc}")
+        sys.exit(1)
 
     english_sentences, num_rows = fetch_english_sentences(args.source_sheet_id, args.source_tab_name)
     if num_rows == 0:

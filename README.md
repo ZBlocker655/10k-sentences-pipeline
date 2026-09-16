@@ -49,6 +49,19 @@ This repository contains Python scripts designed to help language learners build
  GOOGLE_SERVICE_ACCOUNT_FILE=.secrets/gcloud-key.json
  ```
 
+### OAuth Client Setup
+
+- Create an OAuth desktop client in the same Google Cloud project and download the JSON file.
+- Store it securely in your project directory (for example `.secrets/oauth-client.json`).
+- Add the following to your `.env` file if you want to use OAuth:
+
+ ```env
+ GOOGLE_OAUTH_CLIENT_FILE=.secrets/oauth-client.json
+ ```
+
+- `translate_sheet_generator.py` supports either a service account or OAuth.
+- `audio_generator.py` currently uses OAuth.
+
 ## Usage
 
 ### Extracting Sentences with `anki_sentence_extractor.py`
